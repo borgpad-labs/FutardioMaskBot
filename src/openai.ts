@@ -56,15 +56,18 @@ export class OpenAIService {
     }
   }
 
-  async generateFusedImageFromComposite(userImageBuffer: ArrayBuffer, maskImageUrl: string, prompt: string): Promise<string | ArrayBuffer> {
+  async generateFusedImageFromComposite(userImageBuffer: ArrayBuffer, prompt: string): Promise<string | ArrayBuffer> {
     try {
       console.log('Starting image generation with:');
       console.log('- User image size:', userImageBuffer.byteLength, 'bytes');
-      console.log('- Mask URL:', maskImageUrl);
       console.log('- Prompt:', prompt);
 
-      // Télécharger l'image du masque
-      const maskResponse = await fetch(maskImageUrl);
+      // URL du masque Futardio 1 uniquement
+      const maskUrl = "https://pub-630b798efee24fb0a992c8f5fc2a5d1c.r2.dev/FutardioMask1.png";
+
+      // Télécharger le masque
+      console.log('Downloading mask image...');
+      const maskResponse = await fetch(maskUrl);
       if (!maskResponse.ok) {
         throw new Error(`Failed to download mask image: ${maskResponse.status}`);
       }
@@ -81,11 +84,11 @@ export class OpenAIService {
       const userImageBlob = new Blob([userImageBuffer], { type: 'image/jpeg' });
       formData.append('image[]', userImageBlob, 'user.jpg');
       
-      // Ajouter l'image du masque
-      const maskImageBlob = new Blob([maskBuffer], { type: 'image/jpeg' });
-      formData.append('image[]', maskImageBlob, 'mask.jpg');
+      // Ajouter le masque Futardio 1
+      const maskImageBlob = new Blob([maskBuffer], { type: 'image/png' });
+      formData.append('image[]', maskImageBlob, 'futardio-mask1.png');
 
-      console.log('Sending request to OpenAI images/edits...');
+      console.log('Sending request to OpenAI images/edits with 2 images total...');
 
       const response = await fetch(`${this.baseUrl}/images/edits`, {
         method: 'POST',

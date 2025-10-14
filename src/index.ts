@@ -66,7 +66,14 @@ async function handleMessage(
 
   // Expérience simplifiée : au démarrage, on attend directement une photo
   if (text === '/start') {
-    await bot.sendMessage(chatId, "Send me your image.");
+    await bot.sendMessage(
+      chatId, 
+      `🎭 Welcome to Futardio Mask Bot!
+
+Send me a photo with a face and I'll apply a Futardio mask to it automatically.
+
+Just drop your image here to get started! 📸`
+    );
     sessionManager.updateSession(userId, { state: 'waiting_photo' });
     return;
   }
@@ -121,22 +128,10 @@ async function handlePhotoUpload(
     // Télécharger la photo
     const imageBuffer = await bot.downloadFile(fileInfo.result.file_path);
 
-    // Sélectionner aléatoirement un masque Futardio
-    const maskImages = [
-      "https://pub-630b798efee24fb0a992c8f5fc2a5d1c.r2.dev/FutardioMask1.png",
-      "https://pub-630b798efee24fb0a992c8f5fc2a5d1c.r2.dev/FutardioMask2.png", 
-      "https://pub-630b798efee24fb0a992c8f5fc2a5d1c.r2.dev/FutardioMask3.png",
-      "https://pub-630b798efee24fb0a992c8f5fc2a5d1c.r2.dev/FutardioMask4.png",
-      "https://pub-630b798efee24fb0a992c8f5fc2a5d1c.r2.dev/FutardioMask5.png"
-    ];
-    
-    const selectedMaskUrl = maskImages[Math.floor(Math.random() * maskImages.length)];
-    const maskNumber = selectedMaskUrl.match(/FutardioMask(\d+)/)?.[1] || "1";
-
-    await bot.sendMessage(chatId, `🎭 Applying Futardio Mask ${maskNumber}...`);
+    await bot.sendMessage(chatId, `🎭 Applying Futardio Mask 1...`);
 
     // Créer un prompt détaillé pour la génération d'image
-    const generationPrompt = `INSTRUCTIONS: Create a merge image of this person wearing the mask.
+    const generationPrompt = `INSTRUCTIONS: Create a merge of this person wearing the mask..
 
 FUSION REQUIREMENTS:
 - Seamlessly blend the mask with the person's facial contours
@@ -146,11 +141,11 @@ FUSION REQUIREMENTS:
 - Keep realistic proportions and positioning
 - The result should look like the person is actually wearing the mask
 
+Generate the same image where the mask appears naturally applied to this specific person's face. The style should match the original photo exactly.
+Do not change the original photo style and juste merge the mask on the person.`;
 
-Generate a photorealistic result where the Futardio mask appears naturally applied to this specific person's face. The style should match the original photo exactly.`;
-
-    // Utiliser l'approche à deux étapes : GPT-4o analyse les deux images, puis DALL-E 3 génère
-    const generatedImageResult = await openai.generateFusedImageFromComposite(imageBuffer, selectedMaskUrl, generationPrompt);
+    // Envoyer les 2 images (utilisateur + masque 1) à gpt-image-1
+    const generatedImageResult = await openai.generateFusedImageFromComposite(imageBuffer, generationPrompt);
 
     // Envoyer l'image générée (peut être une URL string ou un ArrayBuffer)
     await bot.sendPhoto(chatId, generatedImageResult);
