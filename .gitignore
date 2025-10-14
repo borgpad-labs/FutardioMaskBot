@@ -89,3 +89,20 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Wrangler config files (ignore all versions)
+wrangler.toml
+wrangler-config.toml
+
+# Cache
+.cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Swap files
+*.swp
+*.swo
+
+# Local config
+*.local
