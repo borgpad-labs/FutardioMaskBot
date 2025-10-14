@@ -1,0 +1,30 @@
+{
+  "name": "futardio-mask-bot",
+  "version": "1.0.0",
+  "description": "Bot Telegram automatisé pour fusionner des visages avec des masques via ChatGPT",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "chatgpt",
+    "face-fusion",
+    "cloudflare"
+  ],
+  "author": "BorgPad Labs",
+  "license": "MIT",
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.20241011.0",
+    "node-telegram-bot-api": "^0.66.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.42.2"
+  }
+}
