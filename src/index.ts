@@ -128,7 +128,7 @@ async function handlePhotoUpload(
     // Télécharger la photo
     const imageBuffer = await bot.downloadFile(fileInfo.result.file_path);
 
-    await bot.sendMessage(chatId, `🎭 Applying Futardio Mask 1...`);
+    await bot.sendMessage(chatId, `🎭 Applying Futardio Mask...`);
 
     // Créer un prompt détaillé pour la génération d'image
     const generationPrompt = `INSTRUCTIONS: Create a merge of this person wearing the mask..
