@@ -187,7 +187,7 @@ async function handlePhotoUpload(
     await bot.sendMessage(chatId, `🎭 Applying Futardio Mask...`);
 
     // Créer un prompt détaillé pour la génération d'image
-    const generationPrompt = `INSTRUCTIONS: Create a merge of this person wearing the mask..
+    const generationPrompt = `INSTRUCTIONS: Create a merge of this character wearing the mask..
 
 FUSION REQUIREMENTS:
 - Seamlessly blend the mask with the person's facial contours
@@ -196,9 +196,9 @@ FUSION REQUIREMENTS:
 - Ensure the mask follows the face's natural curves and angles
 - Ensure that the mask fit well the face and if needed out it behind the hair if some are on the face
 - The result should look like the person is actually wearing the mask
-
+It can be non-human character so keep the same color as the original image, the same body, everything should be the same. You just merge the mask on the character.
 Generate the same image where the mask appears naturally applied to this specific person's face. The style should match the original photo exactly.
-Do not change the original photo style and juste merge the mask on the person. Do not add anything else or create a realistic version of the photo or the person.`;
+Do not change the original photo style, color or body and juste merge the mask on the character. Do not add anything else.`;
 
     // Envoyer les 2 images (utilisateur + masque 1) à gpt-image-1
     const generatedImage = await openai.generateFusedImageFromComposite(imageBuffer, generationPrompt);
