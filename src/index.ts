@@ -138,17 +138,21 @@ FUSION REQUIREMENTS:
 - Maintain the original lighting and shadows from the photo
 - Preserve hair, ears, and lower face visibility
 - Ensure the mask follows the face's natural curves and angles
-- Keep realistic proportions and positioning
+- Ensure that the mask fit well the face and if needed out it behind the hair if some are on the face
 - The result should look like the person is actually wearing the mask
 
 Generate the same image where the mask appears naturally applied to this specific person's face. The style should match the original photo exactly.
-Do not change the original photo style and juste merge the mask on the person.`;
+Do not change the original photo style and juste merge the mask on the person. Do not add anything else or create a realistic version of the photo or the person.`;
 
     // Envoyer les 2 images (utilisateur + masque 1) à gpt-image-1
-    const generatedImageResult = await openai.generateFusedImageFromComposite(imageBuffer, generationPrompt);
+    const generatedImages = await openai.generateFusedImageFromComposite(imageBuffer, generationPrompt);
 
-    // Envoyer l'image générée (peut être une URL string ou un ArrayBuffer)
-    await bot.sendPhoto(chatId, generatedImageResult);
+    // Envoyer toutes les images générées
+    await bot.sendMessage(chatId, `🎨 Generated ${generatedImages.length} variations:`);
+    
+    for (let i = 0; i < generatedImages.length; i++) {
+      await bot.sendPhoto(chatId, generatedImages[i]);
+    }
 
     // Message simple pour encourager à recommencer
     await bot.sendMessage(chatId, `✨ Futardio mask applied! Send me another image if you want to try again!`);

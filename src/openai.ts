@@ -22,11 +22,11 @@ export class OpenAIService {
       const imageBlob = new Blob([imageBuffer], { type: 'image/png' });
       const maskBlob = new Blob([maskBuffer], { type: 'image/png' });
       
-      formData.append('model', 'gpt-image-1-mini');
+      formData.append('model', 'gpt-image-1');
       formData.append('image', imageBlob, 'image.png');
       formData.append('mask', maskBlob, 'mask.png');
       formData.append('prompt', prompt);
-      formData.append('n', '1');
+      formData.append('n', '3');
       formData.append('size', '1024x1024');
 
       const response = await fetch(`${this.baseUrl}/images/edits`, {
@@ -45,9 +45,11 @@ export class OpenAIService {
 
       const data = await response.json() as any;
       
-      if (data.data && data.data[0] && data.data[0].url) {
-        return data.data[0].url;
-      }
+    if (data.data && Array.isArray(data.data)) {
+      return data.data
+        .map((item: any) => item.url)
+        .filter((url: string) => !!url);
+    }
 
       throw new Error('No image generated');
     } catch (error) {
@@ -56,7 +58,7 @@ export class OpenAIService {
     }
   }
 
-  async generateFusedImageFromComposite(userImageBuffer: ArrayBuffer, prompt: string): Promise<string | ArrayBuffer> {
+  async generateFusedImageFromComposite(userImageBuffer: ArrayBuffer, prompt: string): Promise<(string | ArrayBuffer)[]> {
     try {
       console.log('Starting image generation with:');
       console.log('- User image size:', userImageBuffer.byteLength, 'bytes');
@@ -79,6 +81,7 @@ export class OpenAIService {
       
       formData.append('model', 'gpt-image-1');
       formData.append('prompt', prompt);
+      formData.append('n', '3'); // Générer 3 images
       
       // Ajouter l'image de l'utilisateur
       const userImageBlob = new Blob([userImageBuffer], { type: 'image/jpeg' });
@@ -109,35 +112,44 @@ export class OpenAIService {
 
       const data = await response.json() as any;
       console.log('API response keys:', Object.keys(data));
-      if (data.data && data.data[0]) {
-        console.log('First data item keys:', Object.keys(data.data[0]));
-      }
+      console.log('Number of images generated:', data.data?.length || 0);
       
-      if (data.data && data.data[0]) {
-        // Vérifier si on a une URL directe
-        if (data.data[0].url) {
-          console.log('Generated image URL:', data.data[0].url);
-          return data.data[0].url;
+      if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+        const results: (string | ArrayBuffer)[] = [];
+        
+        for (let i = 0; i < data.data.length; i++) {
+          const item = data.data[i];
+          console.log(`Processing image ${i + 1}, keys:`, Object.keys(item));
+          
+          // Vérifier si on a une URL directe
+          if (item.url) {
+            console.log(`Generated image ${i + 1} URL:`, item.url);
+            results.push(item.url);
+          }
+          // Vérifier si on a l'image en base64
+          else if (item.b64_json) {
+            console.log(`Generated image ${i + 1} in base64 format, converting to ArrayBuffer...`);
+            const base64Image = item.b64_json;
+            
+            // Convertir base64 en ArrayBuffer
+            const binaryString = atob(base64Image);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let j = 0; j < binaryString.length; j++) {
+              bytes[j] = binaryString.charCodeAt(j);
+            }
+            
+            results.push(bytes.buffer);
+          }
         }
         
-        // Vérifier si on a l'image en base64
-        if (data.data[0].b64_json) {
-          console.log('Generated image in base64 format, converting to ArrayBuffer...');
-          const base64Image = data.data[0].b64_json;
-          
-          // Convertir base64 en ArrayBuffer
-          const binaryString = atob(base64Image);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          
-          return bytes.buffer;
+        if (results.length > 0) {
+          console.log(`Successfully processed ${results.length} images`);
+          return results;
         }
       }
 
-      console.error('No image URL or base64 in response. Data structure keys:', Object.keys(data));
-      throw new Error('No image generated');
+      console.error('No images found in response. Data structure keys:', Object.keys(data));
+      throw new Error('No images generated');
     } catch (error) {
       console.error('Error generating fused image:', error);
       throw error;
