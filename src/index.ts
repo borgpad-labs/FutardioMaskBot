@@ -78,13 +78,17 @@ async function handleMessage(
     
     await bot.sendMessage(
       chatId, 
-      `🎭 Welcome to Futardio Mask Bot!
+      `🎭 Welcome Futardio!
 
-Send me a photo with a face and I'll apply a Futardio mask to it automatically.
+Send me a photo with a face and I'll apply the Proph3t mask to it automatically.
 
-📊 Generations: ${used}/5 used (${remaining} remaining)
+Just drop your image here to get started! 📸
 
-Just drop your image here to get started! 📸`
+This bot was made in support of the MetaDAO Ecosystem. - https://x.com/MetaDAOProject
+
+Inspired by https://www.futard.io/mask-yourself
+
+�📊 Generations: ${used}/5 used (${remaining} remaining)`
     );
     await sessionManager.updateSession(userId, { state: 'waiting_photo' }, username);
     return;
@@ -101,7 +105,7 @@ Just drop your image here to get started! 📸`
       
       await bot.sendMessage(
         chatId,
-        `🚫 You have reached the maximum limit of ${used}/5 image generations.\n\nThank you for using Futardio Mask Bot!`
+        `🚫 You have reached the maximum limit of ${used}/5 image generations.\n\nThank you for using Proph3t Mask Bot!`
       );
       return;
     }
@@ -118,9 +122,15 @@ Just drop your image here to get started! 📸`
     
     await bot.sendMessage(
       chatId,
-      `🎭 Futardio Mask Bot Help
+      `🎭 Welcome Futardio!
 
-Send me a photo with a face and I'll add the Futardio mask to it automatically.
+Send me a photo with a face and I'll apply the Proph3t mask to it automatically.
+
+Just drop your image here to get started! 📸
+
+This bot was made in support of the MetaDAO Ecosystem. - https://x.com/MetaDAOProject
+
+Inspired by https://www.futard.io/mask-yourself
 
 📊 Your usage: ${used}/5 generations used (${remaining} remaining)
 
@@ -184,7 +194,7 @@ async function handlePhotoUpload(
     // Télécharger la photo
     const imageBuffer = await bot.downloadFile(fileInfo.result.file_path);
 
-    await bot.sendMessage(chatId, `🎭 Applying Futardio Mask...`);
+    await bot.sendMessage(chatId, `🎭 Applying Proph3t Mask...`);
 
     // Créer un prompt détaillé pour la génération d'image
     const generationPrompt = `INSTRUCTIONS: Create a merge of this character wearing the mask..
@@ -220,15 +230,15 @@ Do not change the original photo style, color or body and juste merge the mask o
 
     // Message avec le statut des générations restantes
     if (remaining > 0) {
-      await bot.sendMessage(chatId, `✨ Futardio mask applied! 
+      await bot.sendMessage(chatId, `✨ Proph3t mask applied! 
 
 📊 Generations: ${used}/5 used (${remaining} remaining)
 
 Send me another image if you want to try again!`);
     } else {
-      await bot.sendMessage(chatId, `✨ Futardio mask applied! 
+      await bot.sendMessage(chatId, `✨ Proph3t mask applied! 
 
-🚫 You have used all 5 generations. Thank you for using Futardio Mask Bot!`);
+🚫 You have used all 5 generations. Thank you for using Proph3t Mask Bot!`);
     }
 
     // Réinitialiser pour permettre une nouvelle photo immédiatement
