@@ -145,14 +145,10 @@ Generate the same image where the mask appears naturally applied to this specifi
 Do not change the original photo style and juste merge the mask on the person. Do not add anything else or create a realistic version of the photo or the person.`;
 
     // Envoyer les 2 images (utilisateur + masque 1) à gpt-image-1
-    const generatedImages = await openai.generateFusedImageFromComposite(imageBuffer, generationPrompt);
+    const generatedImage = await openai.generateFusedImageFromComposite(imageBuffer, generationPrompt);
 
-    // Envoyer toutes les images générées
-    await bot.sendMessage(chatId, `🎨 Generated ${generatedImages.length} variations:`);
-    
-    for (let i = 0; i < generatedImages.length; i++) {
-      await bot.sendPhoto(chatId, generatedImages[i]);
-    }
+    // Envoyer l'image générée
+    await bot.sendPhoto(chatId, generatedImage);
 
     // Message simple pour encourager à recommencer
     await bot.sendMessage(chatId, `✨ Futardio mask applied! Send me another image if you want to try again!`);
