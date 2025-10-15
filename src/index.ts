@@ -15,15 +15,19 @@ export default {
       // Initialiser les services
       const bot = new TelegramBot(env.TELEGRAM_BOT_TOKEN);
       const openai = new OpenAIService(env.OPENAI_API_KEY);
-      const sessionManager = new SessionManager();
+      const sessionManager = new SessionManager(env.USER_SESSIONS);
       const imageComposer = new ImageComposer();
+
+      console.log('[Main] New request received, SessionManager created with KV persistence');
 
       // Parser le body de la requête
       const update: TelegramUpdate = await request.json();
       
       if (update.message) {
+        console.log('[Main] Processing message from user:', update.message.from.id);
         await handleMessage(update.message, bot, openai, sessionManager, imageComposer);
       } else if (update.callback_query) {
+        console.log('[Main] Processing callback query from user:', update.callback_query.from.id);
         await handleCallbackQuery(update.callback_query, bot, sessionManager);
       }
 
@@ -49,7 +53,7 @@ async function handleCallbackQuery(
   await bot.answerCallbackQuery(callbackQuery.id);
 
   // Pour l'expérience simplifiée, on redirige vers l'état d'attente de photo
-  sessionManager.updateSession(userId, { state: 'waiting_photo' });
+  await sessionManager.updateSession(userId, { state: 'waiting_photo' }, callbackQuery.from.username);
   await bot.sendMessage(chatId, "Send me your image.");
 }
 
@@ -62,40 +66,91 @@ async function handleMessage(
 ): Promise<void> {
   const chatId = message.chat.id;
   const userId = message.from.id;
+  const username = message.from.username;
   const text = message.text;
+
+  console.log(`[Main] Processing message from user ${userId} (@${username || 'no_username'})`);
 
   // Expérience simplifiée : au démarrage, on attend directement une photo
   if (text === '/start') {
+    const remaining = await sessionManager.getRemainingGenerations(userId, username);
+    const used = await sessionManager.getUsedGenerations(userId, username);
+    
     await bot.sendMessage(
       chatId, 
       `🎭 Welcome to Futardio Mask Bot!
 
 Send me a photo with a face and I'll apply a Futardio mask to it automatically.
 
+📊 Generations: ${used}/5 used (${remaining} remaining)
+
 Just drop your image here to get started! 📸`
     );
-    sessionManager.updateSession(userId, { state: 'waiting_photo' });
+    await sessionManager.updateSession(userId, { state: 'waiting_photo' }, username);
     return;
   }
 
   // Si l'utilisateur envoie une photo, on la traite immédiatement
   if (message.photo) {
-    await handlePhotoUpload(message, bot, openai, sessionManager, imageComposer, chatId, userId);
+    console.log(`[Main] Photo received from user ${userId} (@${username || 'no_username'}), checking limit...`);
+    
+    // Vérifier si l'utilisateur a atteint la limite
+    if (await sessionManager.hasReachedLimit(userId, username)) {
+      const used = await sessionManager.getUsedGenerations(userId, username);
+      console.log(`[Main] User ${userId} (@${username || 'no_username'}) has reached limit (${used}/5), sending limit message`);
+      
+      await bot.sendMessage(
+        chatId,
+        `🚫 You have reached the maximum limit of ${used}/5 image generations.\n\nThank you for using Futardio Mask Bot!`
+      );
+      return;
+    }
+
+    console.log(`[Main] User ${userId} (@${username || 'no_username'}) has not reached limit, proceeding with photo upload...`);
+    await handlePhotoUpload(message, bot, openai, sessionManager, imageComposer, chatId, userId, username);
     return;
   }
 
   // Pour tout autre message, on rappelle gentiment ce qu'on attend
   if (text === '/help') {
+    const remaining = await sessionManager.getRemainingGenerations(userId, username);
+    const used = await sessionManager.getUsedGenerations(userId, username);
+    
     await bot.sendMessage(
       chatId,
-      `Send me a photo with a face and I'll add the Futardio mask to it automatically.`
+      `🎭 Futardio Mask Bot Help
+
+Send me a photo with a face and I'll add the Futardio mask to it automatically.
+
+📊 Your usage: ${used}/5 generations used (${remaining} remaining)
+
+Commands:
+/start - Welcome message
+/help - This help message  
+/status - Check remaining generations`
+    );
+    return;
+  }
+
+  if (text === '/status') {
+    const remaining = await sessionManager.getRemainingGenerations(userId, username);
+    const used = await sessionManager.getUsedGenerations(userId, username);
+    
+    await bot.sendMessage(
+      chatId,
+      `📊 Your Generation Status:
+
+Used: ${used}/5 generations
+Remaining: ${remaining} generations
+
+${remaining > 0 ? 'Send me a photo to generate a masked image!' : '🚫 You have reached the maximum limit.'}`
     );
     return;
   }
 
   // Message par défaut simplifié
   await bot.sendMessage(chatId, "Send me your image.");
-  sessionManager.updateSession(userId, { state: 'waiting_photo' });
+  await sessionManager.updateSession(userId, { state: 'waiting_photo' }, username);
 }
 
 async function handlePhotoUpload(
@@ -105,11 +160,12 @@ async function handlePhotoUpload(
   sessionManager: SessionManager,
   imageComposer: ImageComposer,
   chatId: number,
-  userId: number
+  userId: number,
+  username?: string
 ): Promise<void> {
   try {
     // Marquer comme en cours de traitement
-    sessionManager.updateSession(userId, { state: 'processing' });
+    await sessionManager.updateSession(userId, { state: 'processing' }, username);
 
     // Message de traitement minimal et rassurant
     await bot.sendMessage(chatId, '⏳ Processing...');
@@ -150,11 +206,33 @@ Do not change the original photo style and juste merge the mask on the person. D
     // Envoyer l'image générée
     await bot.sendPhoto(chatId, generatedImage);
 
-    // Message simple pour encourager à recommencer
-    await bot.sendMessage(chatId, `✨ Futardio mask applied! Send me another image if you want to try again!`);
+    console.log(`[Main] Image sent successfully for user ${userId} (@${username || 'no_username'}), now incrementing generations...`);
+    
+    // Incrémenter le compteur de générations
+    await sessionManager.incrementGenerations(userId, username);
+    
+    console.log(`[Main] Generations incremented for user ${userId} (@${username || 'no_username'}), getting new counts...`);
+    
+    const remaining = await sessionManager.getRemainingGenerations(userId, username);
+    const used = await sessionManager.getUsedGenerations(userId, username);
+
+    console.log(`[Main] Final counts for user ${userId} (@${username || 'no_username'}): used=${used}, remaining=${remaining}`);
+
+    // Message avec le statut des générations restantes
+    if (remaining > 0) {
+      await bot.sendMessage(chatId, `✨ Futardio mask applied! 
+
+📊 Generations: ${used}/5 used (${remaining} remaining)
+
+Send me another image if you want to try again!`);
+    } else {
+      await bot.sendMessage(chatId, `✨ Futardio mask applied! 
+
+🚫 You have used all 5 generations. Thank you for using Futardio Mask Bot!`);
+    }
 
     // Réinitialiser pour permettre une nouvelle photo immédiatement
-    sessionManager.updateSession(userId, { state: 'waiting_photo' });
+    await sessionManager.updateSession(userId, { state: 'waiting_photo' }, username);
 
   } catch (error) {
     console.error('Error processing photo:', error);
@@ -165,6 +243,6 @@ Do not change the original photo style and juste merge the mask on the person. D
     );
 
     // Réinitialiser en cas d'erreur pour permettre une nouvelle tentative
-    sessionManager.updateSession(userId, { state: 'waiting_photo' });
+    await sessionManager.updateSession(userId, { state: 'waiting_photo' }, username);
   }
 }

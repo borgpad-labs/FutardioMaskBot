@@ -3,6 +3,7 @@ export interface Env {
   TELEGRAM_BOT_TOKEN: string;
   OPENAI_API_KEY: string;
   FUTARDIO_MASKS: R2Bucket;
+  USER_SESSIONS: KVNamespace;
 }
 
 // Types pour les messages Telegram
@@ -69,4 +70,5 @@ export interface UserSession {
   state: 'waiting_photo' | 'processing' | 'idle';
   uploaded_photo?: string;
   mask_image?: string;
+  generationsUsed?: number; // Compteur du nombre de générations utilisées
 }
