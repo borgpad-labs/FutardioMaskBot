@@ -53,7 +53,7 @@ async function handleCallbackQuery(
   await bot.answerCallbackQuery(callbackQuery.id);
 
   // Pour l'expérience simplifiée, on redirige vers l'état d'attente de photo
-  await sessionManager.updateSession(userId, { state: 'waiting_photo' });
+  await sessionManager.updateSession(userId, { state: 'waiting_photo' }, callbackQuery.from.username);
   await bot.sendMessage(chatId, "Send me your image.");
 }
 
@@ -66,12 +66,15 @@ async function handleMessage(
 ): Promise<void> {
   const chatId = message.chat.id;
   const userId = message.from.id;
+  const username = message.from.username;
   const text = message.text;
+
+  console.log(`[Main] Processing message from user ${userId} (@${username || 'no_username'})`);
 
   // Expérience simplifiée : au démarrage, on attend directement une photo
   if (text === '/start') {
-    const remaining = await sessionManager.getRemainingGenerations(userId);
-    const used = await sessionManager.getUsedGenerations(userId);
+    const remaining = await sessionManager.getRemainingGenerations(userId, username);
+    const used = await sessionManager.getUsedGenerations(userId, username);
     
     await bot.sendMessage(
       chatId, 
@@ -83,18 +86,18 @@ Send me a photo with a face and I'll apply a Futardio mask to it automatically.
 
 Just drop your image here to get started! 📸`
     );
-    await sessionManager.updateSession(userId, { state: 'waiting_photo' });
+    await sessionManager.updateSession(userId, { state: 'waiting_photo' }, username);
     return;
   }
 
   // Si l'utilisateur envoie une photo, on la traite immédiatement
   if (message.photo) {
-    console.log(`[Main] Photo received from user ${userId}, checking limit...`);
+    console.log(`[Main] Photo received from user ${userId} (@${username || 'no_username'}), checking limit...`);
     
     // Vérifier si l'utilisateur a atteint la limite
-    if (await sessionManager.hasReachedLimit(userId)) {
-      const used = await sessionManager.getUsedGenerations(userId);
-      console.log(`[Main] User ${userId} has reached limit (${used}/5), sending limit message`);
+    if (await sessionManager.hasReachedLimit(userId, username)) {
+      const used = await sessionManager.getUsedGenerations(userId, username);
+      console.log(`[Main] User ${userId} (@${username || 'no_username'}) has reached limit (${used}/5), sending limit message`);
       
       await bot.sendMessage(
         chatId,
@@ -103,15 +106,15 @@ Just drop your image here to get started! 📸`
       return;
     }
 
-    console.log(`[Main] User ${userId} has not reached limit, proceeding with photo upload...`);
-    await handlePhotoUpload(message, bot, openai, sessionManager, imageComposer, chatId, userId);
+    console.log(`[Main] User ${userId} (@${username || 'no_username'}) has not reached limit, proceeding with photo upload...`);
+    await handlePhotoUpload(message, bot, openai, sessionManager, imageComposer, chatId, userId, username);
     return;
   }
 
   // Pour tout autre message, on rappelle gentiment ce qu'on attend
   if (text === '/help') {
-    const remaining = await sessionManager.getRemainingGenerations(userId);
-    const used = await sessionManager.getUsedGenerations(userId);
+    const remaining = await sessionManager.getRemainingGenerations(userId, username);
+    const used = await sessionManager.getUsedGenerations(userId, username);
     
     await bot.sendMessage(
       chatId,
@@ -130,8 +133,8 @@ Commands:
   }
 
   if (text === '/status') {
-    const remaining = await sessionManager.getRemainingGenerations(userId);
-    const used = await sessionManager.getUsedGenerations(userId);
+    const remaining = await sessionManager.getRemainingGenerations(userId, username);
+    const used = await sessionManager.getUsedGenerations(userId, username);
     
     await bot.sendMessage(
       chatId,
@@ -147,7 +150,7 @@ ${remaining > 0 ? 'Send me a photo to generate a masked image!' : '🚫 You have
 
   // Message par défaut simplifié
   await bot.sendMessage(chatId, "Send me your image.");
-  await sessionManager.updateSession(userId, { state: 'waiting_photo' });
+  await sessionManager.updateSession(userId, { state: 'waiting_photo' }, username);
 }
 
 async function handlePhotoUpload(
@@ -157,11 +160,12 @@ async function handlePhotoUpload(
   sessionManager: SessionManager,
   imageComposer: ImageComposer,
   chatId: number,
-  userId: number
+  userId: number,
+  username?: string
 ): Promise<void> {
   try {
     // Marquer comme en cours de traitement
-    await sessionManager.updateSession(userId, { state: 'processing' });
+    await sessionManager.updateSession(userId, { state: 'processing' }, username);
 
     // Message de traitement minimal et rassurant
     await bot.sendMessage(chatId, '⏳ Processing...');
@@ -202,17 +206,17 @@ Do not change the original photo style and juste merge the mask on the person. D
     // Envoyer l'image générée
     await bot.sendPhoto(chatId, generatedImage);
 
-    console.log(`[Main] Image sent successfully for user ${userId}, now incrementing generations...`);
+    console.log(`[Main] Image sent successfully for user ${userId} (@${username || 'no_username'}), now incrementing generations...`);
     
     // Incrémenter le compteur de générations
-    await sessionManager.incrementGenerations(userId);
+    await sessionManager.incrementGenerations(userId, username);
     
-    console.log(`[Main] Generations incremented for user ${userId}, getting new counts...`);
+    console.log(`[Main] Generations incremented for user ${userId} (@${username || 'no_username'}), getting new counts...`);
     
-    const remaining = await sessionManager.getRemainingGenerations(userId);
-    const used = await sessionManager.getUsedGenerations(userId);
+    const remaining = await sessionManager.getRemainingGenerations(userId, username);
+    const used = await sessionManager.getUsedGenerations(userId, username);
 
-    console.log(`[Main] Final counts for user ${userId}: used=${used}, remaining=${remaining}`);
+    console.log(`[Main] Final counts for user ${userId} (@${username || 'no_username'}): used=${used}, remaining=${remaining}`);
 
     // Message avec le statut des générations restantes
     if (remaining > 0) {
@@ -228,7 +232,7 @@ Send me another image if you want to try again!`);
     }
 
     // Réinitialiser pour permettre une nouvelle photo immédiatement
-    await sessionManager.updateSession(userId, { state: 'waiting_photo' });
+    await sessionManager.updateSession(userId, { state: 'waiting_photo' }, username);
 
   } catch (error) {
     console.error('Error processing photo:', error);
@@ -239,6 +243,6 @@ Send me another image if you want to try again!`);
     );
 
     // Réinitialiser en cas d'erreur pour permettre une nouvelle tentative
-    await sessionManager.updateSession(userId, { state: 'waiting_photo' });
+    await sessionManager.updateSession(userId, { state: 'waiting_photo' }, username);
   }
 }
